@@ -117,6 +117,8 @@ function update(){
   t++;
   const L=keys.ArrowLeft||keys.KeyA,R=keys.ArrowRight||keys.KeyD,J=keys.Space||keys.ArrowUp||keys.KeyW;
   const D=keys.KeyX||keys.ShiftLeft||keys.ShiftRight||keys.KeyK;
+  const jp=J&&!p.jh;p.jh=J;
+  if(p.on)p.jumps=0;else if(!p.jumps)p.jumps=1;
   if(p.dcd>0)p.dcd--;
   if(p.scd>0)p.scd--;
   if(keys.Fire&&p.scd<=0&&p.dash<=0){p.scd=16;pb.push({x:p.x+p.w/2+p.face*(p.w/2),y:p.y+p.h*.42,vx:p.face*9});}
@@ -124,7 +126,7 @@ function update(){
   if(p.dash>0){p.dash--;p.vx=p.face*11;p.vy=0;}
   else{
     p.vx=(R?3.3:0)-(L?3.3:0); if(p.vx)p.face=p.vx>0?1:-1;
-    if(J&&p.on){p.vy=-11.6;p.on=0;}
+    if(jp){if(p.on){p.vy=-11.6;p.on=0;p.jumps=1;}else if(p.jumps<2){p.vy=-13.4;p.jumps=2;}}
     if(!J&&p.vy<-4)p.vy=-4;
     p.vy+=.55; if(p.vy>13)p.vy=13;
   }
