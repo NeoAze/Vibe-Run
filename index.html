@@ -13,7 +13,7 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 #wrap{position:relative;width:min(100vw,calc((100vh - 12px)*2))}
 @supports (height:100dvh){#wrap{width:min(100vw,calc((100dvh - 12px)*2))}}
 @media (pointer:coarse){#wrap{width:min(100vw,calc((100vh - 90px)*2))}}
-#fs,#snd,#pb{position:absolute;right:10px;bottom:10px;z-index:3;width:34px;height:34px;border-radius:6px;border:2px solid #fff;background:rgba(11,13,8,.7);color:#fff;font-size:16px;cursor:pointer}
+#fs,#snd,#mus,#pb{position:absolute;right:10px;bottom:10px;z-index:3;width:34px;height:34px;border-radius:6px;border:2px solid #fff;background:rgba(11,13,8,.7);color:#fff;font-size:16px;cursor:pointer}
 canvas{box-sizing:border-box;width:100%;display:block;image-rendering:pixelated;border:4px solid #fff;border-radius:6px;background:#7fd6ff}
 #menu{position:absolute;left:0;top:0;width:800px;height:400px;transform-origin:0 0;padding:8px;box-sizing:border-box;overflow:hidden;background:#0b0d08;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:12px;line-height:1.8}
 #menu h1{font-size:26px;margin:0;color:var(--pink)}
@@ -36,6 +36,7 @@ canvas{box-sizing:border-box;width:100%;display:block;image-rendering:pixelated;
 @media (pointer:coarse){#touch{display:flex}}
 small{opacity:.7;font-size:9px}
 #snd{right:52px}
+#mus{right:94px}
 #pb{right:auto;left:10px;display:none}
 #pause{display:none;position:absolute;left:0;top:0;width:800px;height:400px;transform-origin:0 0;background:rgba(11,13,8,.88);flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:2;font-size:14px}
 #pause h2{margin:0 0 8px;color:#dfff00;font-size:28px}
@@ -62,7 +63,7 @@ small{opacity:.7;font-size:9px}
     <small>← → move · Space / ↑ jump · Left click shoot · X dash · ↓ crouch · P pause</small>
   </div>
   <div id="pause"><h2>PAUSED</h2><button id="resume">RESUME</button><button id="restart">RESTART</button><button id="tomenu">MAIN MENU</button></div>
-  <button id="pb" tabindex="-1" title="Pause (P)">⏸</button><button id="snd" tabindex="-1" title="Sound (M)">🔊</button><button id="fs" tabindex="-1" title="Fullscreen">⛶</button>
+  <button id="pb" tabindex="-1" title="Pause (P)">⏸</button><button id="mus" tabindex="-1" title="Music (N)">🎵</button><button id="snd" tabindex="-1" title="Sound (M)">🔊</button><button id="fs" tabindex="-1" title="Fullscreen">⛶</button>
 </div>
 <div id="touch">
   <div><button class="tb" id="bl">◀</button> <button class="tb" id="br">▶</button> <button class="tb" id="bdn">▼</button></div>
@@ -124,6 +125,35 @@ const SFX={
 function sfx(n){try{SFX[n]();}catch(e){}}
 // personaj seçəndə yalnız qısa düymə səsi (danışıq/robot səsi yoxdur)
 function voice(i){sfx('click');}
+// ---- musiqi: orijinal chiptune döngüləri (hər etap öz mahnısı) ----
+let musicOn=true,NB=null;
+const MU={name:null,step:0,next:0,mul:1,timer:null};
+const TRK={
+ menu:{bpm:104,root:55,lw:'triangle',bw:'sine',chords:[0,5,0,7],lead:[0,null,7,null,12,null,7,null,5,null,12,null,16,null,12,null,0,null,7,null,12,null,14,null,16,null,14,null,12,null,7,null]},
+ s0:{bpm:132,root:60,lw:'square',bw:'triangle',chords:[0,5,7,0],lead:[0,4,7,12,7,4,7,null,5,9,12,17,12,9,12,null,7,11,14,19,14,11,14,null,12,9,7,4,5,4,2,null]},
+ s1:{bpm:118,root:57,lw:'square',bw:'sawtooth',chords:[0,5,3,7],lead:[0,null,3,null,7,null,10,7,5,null,3,null,0,null,3,5,7,null,10,null,12,null,10,7,3,null,5,7,3,null,0,null]},
+ s2:{bpm:150,root:52,lw:'sawtooth',bw:'square',chords:[0,-2,-4,-2],lead:[0,7,12,7,0,7,12,15,-2,5,10,5,-2,5,10,14,-4,3,8,3,-4,3,8,12,-2,5,10,5,-2,7,12,14]}};
+const hz=n=>440*Math.pow(2,(n-69)/12);
+function note(f,t,d,type,v){const a=AC,o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+.02);}
+function kick(t){const a=AC,o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);
+  g.gain.setValueAtTime(.2,t);g.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.18);}
+function noise(t,d,v,hp){const a=AC;if(!NB){NB=a.createBuffer(1,a.sampleRate*.3,a.sampleRate);const c=NB.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()*2-1;}
+  const s=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();s.buffer=NB;f.type='highpass';f.frequency.value=hp;
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+.02);}
+function playStep(T,s,t,dur){
+  const l=T.lead[s];if(l!=null)note(hz(T.root+l),t,dur*.9,T.lw,.05);
+  const bs=s&7;if(bs%2===0)note(hz(T.root+T.chords[s>>3]-12+(bs===4?7:0)),t,dur*1.7,T.bw,.08);
+  if(s%4===0)kick(t);if(s%8===4)noise(t,.12,.1,1200);if(s%2===1)noise(t,.03,.03,6000);}
+function musicTick(){const a=AC;if(!a||muted||!musicOn||!MU.name||a.state!=='running')return;
+  const T=TRK[MU.name],dur=60/(T.bpm*MU.mul)/2;
+  if(!MU.next||MU.next<a.currentTime)MU.next=a.currentTime+.05;
+  while(MU.next<a.currentTime+.12){playStep(T,MU.step,MU.next,dur);MU.next+=dur;MU.step=(MU.step+1)%32;}}
+function musicSync(){let n=null,m=1;if(state==='menu')n='menu';else if(state==='play'){n='s'+stage;if(arena)m=1.2;}
+  if(!n){MU.name=null;return;}
+  if(MU.name!==n||MU.mul!==m){MU.name=n;MU.mul=m;MU.step=0;MU.next=0;}
+  if(!MU.timer)MU.timer=setInterval(musicTick,25);}
+function toggleMusic(){musicOn=!musicOn;mus.textContent=musicOn?'🎵':'🔕';}
 function toggleMute(){muted=!muted;snd.textContent=muted?'🔇':'🔊';if(muted){try{speechSynthesis.cancel();}catch(e){}}}
 addEventListener('pointerdown',()=>ac());
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
@@ -150,7 +180,7 @@ function spawn(){p={x:60,y:200,w:28,h:36,vx:0,vy:0,on:0,face:1,inv:0,big:0,dash:
 const keys={};
 addEventListener('keydown',e=>{keys[e.code]=1;ac();
   if(!e.repeat){if(e.code==='KeyP'||e.code==='Escape'){if(state==='play')pauseGame();else if(state==='pause')resumeGame();else if(e.code==='Escape'&&(state==='win'||state==='over'))toMenu();}
-    if(e.code==='KeyM')toggleMute();}
+    if(e.code==='KeyM')toggleMute();if(e.code==='KeyN')toggleMusic();}
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
 addEventListener('keyup',e=>keys[e.code]=0);
 addEventListener('mousedown',e=>{if(e.button===0&&state==='play')keys.Fire=1;});
@@ -399,7 +429,7 @@ function drawMenu(){drawBg();
     g.fillStyle='rgba(0,0,0,.4)';g.fillRect(40-sw/2,85,sw,4);
     drawChar(i,10,8+bob-hop,1,28,36,g,2.1);});
   CA.blink=0;CA.wave=null;}
-function loop(ts){
+function loop(ts){musicSync();
   if(!last)last=ts;const dt=Math.min(ts-last,100);acc+=dt;last=ts;
   if(state==='play'){
     while(acc>=16.667){update();acc-=16.667;if(state!=='play')break;}
@@ -426,14 +456,14 @@ CHARS.forEach((c,i)=>{
 });
 function start(){reset(true);state='play';menu.style.display='none';pauseEl.style.display='none';pauseBtn.style.display='block';keys.Space=0;}
 document.getElementById('go').onclick=()=>{sfx('start');start();};document.getElementById('go').onmouseenter=()=>sfx('hover');
-const wrapEl=document.getElementById('wrap'),pauseEl=document.getElementById('pause'),pauseBtn=document.getElementById('pb'),snd=document.getElementById('snd');
+const wrapEl=document.getElementById('wrap'),pauseEl=document.getElementById('pause'),pauseBtn=document.getElementById('pb'),snd=document.getElementById('snd'),mus=document.getElementById('mus');
 function fit(){const sc='scale('+wrapEl.clientWidth/800+')';menu.style.transform=sc;pauseEl.style.transform=sc;}
 addEventListener('resize',fit);document.addEventListener('fullscreenchange',()=>setTimeout(fit,60));fit();
 const fs=document.getElementById('fs');if(!document.fullscreenEnabled)fs.style.display='none';
 fs.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();});
 fs.onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();};
-[pauseBtn,snd].forEach(b=>b.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();}));
-pauseBtn.onclick=()=>pauseGame();snd.onclick=toggleMute;
+[pauseBtn,snd,mus].forEach(b=>b.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();}));
+pauseBtn.onclick=()=>pauseGame();snd.onclick=toggleMute;mus.onclick=toggleMusic;
 document.getElementById('resume').onclick=()=>{sfx('click');resumeGame();};
 document.getElementById('restart').onclick=()=>{sfx('click');start();};
 document.getElementById('tomenu').onclick=()=>{sfx('click');toMenu();};
